@@ -1,4 +1,5 @@
 import type { Cluster, ClusterDetail, PipelineStatus, TicketEvidence } from './types'
+import { CURRENT_ACTOR } from './actors'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -7,7 +8,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      'X-Actor-Id': 'ombudsman.demo',
+      'X-Actor-Id': CURRENT_ACTOR.id,
       ...init?.headers,
     },
   })
@@ -37,7 +38,7 @@ export const api = {
     data.append('file', file)
     const response = await fetch(`${API_URL}/api/v1/imports/csv`, {
       method: 'POST',
-      headers: { 'X-Actor-Id': 'ombudsman.demo' },
+      headers: { 'X-Actor-Id': CURRENT_ACTOR.id },
       body: data,
     })
     if (!response.ok) throw new Error((await response.json()).detail ?? 'Import failed.')
