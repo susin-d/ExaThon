@@ -39,6 +39,11 @@ class Settings(BaseSettings):
             "http://localhost:4173",
             "http://127.0.0.1:5173",
             "http://127.0.0.1:4173",
+            "https://exathon-web.vercel.app",
+            "https://altas-resolve.vercel.app",
+            "https://altas-resolve-5ome8lzto-dhanayendran-5428s-projects.vercel.app",
+            "https://altas-resolve-g1y802pfn-dhanayendran-5428s-projects.vercel.app",
+            "https://altas-resolve-987lp3hts-dhanayendran-5428s-projects.vercel.app",
         ]
     )
 
