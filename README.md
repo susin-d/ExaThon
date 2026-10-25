@@ -2,6 +2,11 @@
 
 An evidence-first investigation workspace for a bank's Internal Ombudsman. It re-evaluates ticket text, surfaces stable process-failure clusters, and records append-only human review decisions without overwriting the original complaint.
 
+## Presentation and Demonstration Assets
+
+- **Walkthrough Video**: [`docs/Catching_Ghost_Complaints_Before_RBI_Does.mp4`](docs/Catching_Ghost_Complaints_Before_RBI_Does.mp4)
+- **Architecture Deck**: [`docs/Sovereign_Complaint_Engine.pdf`](docs/Sovereign_Complaint_Engine.pdf)
+
 ## Run the verified demo stack
 
 ```powershell
