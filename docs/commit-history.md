@@ -323,3 +323,7 @@ The investigation workflow milestone 082 records a bounded evidence review step,
 ## Milestone 083
 
 The investigation workflow milestone 083 records a bounded evidence review step, its supporting ticket lineage, and the append-only decision boundary.
+
+## Milestone 084
+
+The investigation workflow milestone 084 records a bounded evidence review step, its supporting ticket lineage, and the append-only decision boundary.
