@@ -99,3 +99,8 @@ Raw complaint text stays in `TICKETS`. The API returns bounded evidence excerpts
   scale tests. Keep it at `1` for serverless demos.
 
 The included values and records are synthetic demonstration data. Synthetic holdouts can score planted complaint/query and cluster-recovery behavior. CFPB narratives may test robustness on real US complaint writing, but they do not validate RBI-ground accuracy or complaint/query detection.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
