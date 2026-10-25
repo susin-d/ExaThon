@@ -425,9 +425,19 @@ function EvidenceTicket({ ticket }: { ticket: TicketEvidence }) {
   const parts = ticket.excerpt.split(new RegExp(`(${ticket.trigger_phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'ig'))
   return (
     <article className="evidence-ticket">
-      <div><strong>{ticket.source_ticket_id}</strong><span>{ticket.branch_id} · {ticket.channel.replace('_', ' ')}</span><b>{confidence(ticket.confidence)}</b></div>
-      <p>{parts.map((part, index) => part.toLowerCase() === ticket.trigger_phrase.toLowerCase() ? <mark key={index}>{part}</mark> : part)}</p>
-      <footer><span>Agent: {ticket.agent_type}</span><span>Model: complaint</span><span>{ticket.model_version}</span></footer>
+      <div className="ticket-header">
+        <div className="ticket-identifiers">
+          <strong>{ticket.source_ticket_id}</strong>
+          <span className="ticket-meta">{ticket.branch_id} · {ticket.channel.replace('_', ' ')}</span>
+        </div>
+        <b className="ticket-confidence">{confidence(ticket.confidence)}</b>
+      </div>
+      <p className="ticket-excerpt">{parts.map((part, index) => part.toLowerCase() === ticket.trigger_phrase.toLowerCase() ? <mark key={index}>{part}</mark> : part)}</p>
+      <footer className="ticket-footer">
+        <span className="badge badge-agent">Agent: {ticket.agent_type}</span>
+        <span className="badge badge-ground">Model: complaint</span>
+        <span className="badge badge-trigger">{ticket.model_version}</span>
+      </footer>
     </article>
   )
 }
@@ -435,12 +445,53 @@ function EvidenceTicket({ ticket }: { ticket: TicketEvidence }) {
 function EscalationGapView({ data }: { data: EscalationGap | null }) {
   return (
     <div>
-      <div className="page-heading"><div><h1>Escalation gap</h1><p>Complaint-like tickets that appear unresolved but never reached the Internal Ombudsman.</p></div><span className="queue-total">{data?.total ?? '—'} candidates</span></div>
-      {!data ? <div className="empty-state large"><LoaderCircle className="spin" size={28} /><strong>Loading escalation evidence</strong></div> : (
+      <div className="page-heading">
+        <div>
+          <h1>Internal Ombudsman escalation gap</h1>
+          <p>High-confidence complaint predictions that were closed or rejected without entering the regulated Ombudsman review path.</p>
+        </div>
+        <span className="queue-total">{data?.total ?? '—'} candidates</span>
+      </div>
+      {!data ? (
+        <div className="empty-state large">
+          <LoaderCircle className="spin" size={28} />
+          <strong>Loading escalation evidence</strong>
+        </div>
+      ) : (
         <>
-          <div className="drawer-stats"><div><span>Needs escalation review</span><strong>{number.format(data.total)}</strong></div><div><span>High confidence</span><strong>{number.format(data.high_confidence)}</strong></div></div>
-          <p className="onset-note"><ShieldAlert size={15} />{data.explanation}</p>
-          <div className="review-list escalation-list">{data.items.map((item) => <article className="evidence-ticket" key={item.ticket_id}><div><strong>{item.source_ticket_id}</strong><span>{item.branch_id} · {item.product}</span><b>{confidence(item.confidence)}</b></div><p>{item.excerpt}</p><footer><span>{item.ground_pred}</span><span>Trigger: {item.trigger_phrase}</span><span>Agent: {item.agent_type}</span></footer></article>)}</div>
+          <div className="stats-grid">
+            <div className="stat-card">
+              <span>Needs escalation review</span>
+              <strong>{number.format(data.total)}</strong>
+            </div>
+            <div className="stat-card">
+              <span>High confidence</span>
+              <strong>{number.format(data.high_confidence)}</strong>
+            </div>
+          </div>
+          <p className="onset-note">
+            <ShieldAlert size={18} />
+            <span>{data.explanation}</span>
+          </p>
+          <div className="escalation-list">
+            {data.items.map((item) => (
+              <article className="evidence-ticket" key={item.ticket_id}>
+                <div className="ticket-header">
+                  <div className="ticket-identifiers">
+                    <strong>{item.source_ticket_id}</strong>
+                    <span className="ticket-meta">{item.branch_id} · {item.product}</span>
+                  </div>
+                  <b className="ticket-confidence">{confidence(item.confidence)}</b>
+                </div>
+                <p className="ticket-excerpt">{item.excerpt}</p>
+                <footer className="ticket-footer">
+                  <span className="badge badge-ground">{item.ground_pred}</span>
+                  <span className="badge badge-trigger">Trigger: {item.trigger_phrase}</span>
+                  <span className="badge badge-agent">Agent: {item.agent_type}</span>
+                </footer>
+              </article>
+            ))}
+          </div>
         </>
       )}
     </div>
