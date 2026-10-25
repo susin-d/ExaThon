@@ -1,4 +1,4 @@
-import type { Cluster, ClusterDetail, PipelineStatus, TicketEvidence } from './types'
+import type { AskResult, Cluster, ClusterDetail, EscalationGap, GroundSummary, PipelineStatus, TicketEvidence } from './types'
 import { CURRENT_ACTOR } from './actors'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
@@ -29,6 +29,9 @@ export const api = {
   cluster: (id: string) => request<ClusterDetail>(`/api/v1/clusters/${id}`),
   reviewQueue: (minimum = 0.65) => request<TicketEvidence[]>(`/api/v1/review-queue?minimum_confidence=${minimum}`),
   pipeline: () => request<PipelineStatus>('/api/v1/pipeline/status'),
+  escalationGap: () => request<EscalationGap>('/api/v1/escalation-gap'),
+  topGrounds: () => request<GroundSummary[]>('/api/v1/grounds/top-five'),
+  ask: (question: string) => request<AskResult>('/api/v1/ask', { method: 'POST', body: JSON.stringify({ question }) }),
   review: (
     ticketId: string,
     payload: { decision: 'confirm' | 'dismiss' | 'reclassify'; reason?: string; corrected_type?: string },

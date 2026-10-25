@@ -52,6 +52,15 @@ class Repository(ABC):
     @abstractmethod
     def get_import(self, import_id: str) -> dict | None: ...
 
+    @abstractmethod
+    def escalation_gap(self) -> dict: ...
+
+    @abstractmethod
+    def top_grounds(self) -> list[dict]: ...
+
+    @abstractmethod
+    def ask_data(self, question: str) -> dict: ...
+
 
 class DemoRepository(Repository):
     def __init__(self, path: Path):
@@ -162,30 +171,23 @@ class DemoRepository(Repository):
                 )
 
     def _seed(self, db: sqlite3.Connection) -> None:
+        from .settings import get_settings
+
+        scale = get_settings().demo_scale
+        data_path = Path(__file__).with_name("data") / "demo.json"
+        with data_path.open(encoding="utf-8") as data_file:
+            demo_data = json.load(data_file)
         today = datetime.now(UTC).date()
-        clusters = [
-            ("C-104", "upi_reversal", "UPI reversals delayed after switch update", "Digital banking / UPI transaction", "Payments", 48.2, 17, "critical", "Customer narratives show a sharp rise in delayed reversals across multiple branches; the operational cause is still under investigation.", [21, 24, 29, 38, 45, 63, 88]),
-            ("C-087", "loan_reset", "Loan rate reset not communicated", "Loans and advances", "Loans", 23.6, 41, "watch", "Customers report higher EMIs without receiving the required rate-reset notice.", [46, 49, 51, 55, 59, 64, 71]),
-            ("C-119", "atm_debit", "ATM debit with no cash dispensed", "ATM / debit card transaction", "Cards", 16.4, 9, "watch", "Failures concentrate on terminals operated by vendor Northstar ATM Services.", [17, 18, 22, 27, 26, 31, 36]),
-            ("C-062", "charges", "Unannounced SMS and minimum-balance fees", "Charges without prior notice", "Deposits", -7.8, 63, "stable", "Fee complaints are declining but remain misclassified as service requests.", [39, 42, 40, 38, 36, 34, 31]),
-        ]
-        for cid, key, label, ground, product, growth, age, status, summary, counts in clusters:
+        for cluster in demo_data["clusters"]:
             db.execute(
                 "INSERT INTO clusters VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (cid, key, label, ground, product, growth, str(today - timedelta(days=age)), status, summary, json.dumps(counts)),
+                (cluster["cluster_id"], cluster["cluster_key"], cluster["label"], cluster["ground"],
+                 cluster["product"], cluster["wow_growth"],
+                 str(today - timedelta(days=cluster["age_days"])), cluster["status"],
+                 cluster["summary"], json.dumps(cluster["daily_counts"])),
             )
 
-        samples = [
-            ("BCB-84921", "app", "BR-014", "Payments", "transaction status", "query", "UPI TXN-82A91XZ amount debited ₹4,850 four days ago but beneficiary not credited. The branch says wait again."),
-            ("BCB-84937", "call_centre", "BR-021", "Payments", "balance enquiry", "query", "Money debited for UPI RRN 44219872001 and reversal is still stuck after 72 hours. No response to my complaint."),
-            ("BCB-85004", "branch", "BR-014", "Payments", "service request", "request", "UPI reversal for Rs. 2200 has not credited even after repeated visits. Please resolve the delay."),
-            ("BCB-84512", "email", "BR-033", "Loans", "rate information", "query", "My home loan EMI increased this month. I was not informed about any interest reset or rate change."),
-            ("BCB-84670", "app", "BR-009", "Cards", "cash withdrawal", "query", "Account debited Rs 10000 at the ATM but cash not dispensed. Complaint closed without refund."),
-            ("BCB-84742", "branch", "BR-038", "Deposits", "fee request", "request", "Minimum balance charge deducted without notice along with a new SMS charge."),
-            ("BCB-85131", "email", "BR-002", "Payments", "failed transfer", "complaint", "UPI payment failed and amount debited yesterday. Reversal not credited yet."),
-            ("BCB-85178", "call_centre", "BR-006", "Deposits", "branch information", "query", "Please tell me the Saturday branch timings and documents needed for a cheque book."),
-        ]
-        for index, (source_id, channel, branch, product, category, agent_type, text) in enumerate(samples):
+        for index, (source_id, channel, branch, product, category, agent_type, text) in enumerate(demo_data["samples"]):
             ticket_id = str(uuid.uuid5(uuid.NAMESPACE_URL, "demo:" + source_id))
             received = datetime.now(UTC) - timedelta(hours=3 + index * 7)
             db.execute(
@@ -193,14 +195,8 @@ class DemoRepository(Repository):
                 (ticket_id, source_id, received.isoformat(), channel, branch, product, category, agent_type, text, now_iso()),
             )
             self._score_with_connection(db, ticket_id)
-        generated = {
-            "upi_reversal": (85, "Payments", "query", "UPI payment amount debited Rs. 1850 but reversal not credited after four days."),
-            "loan_reset": (70, "Loans", "query", "Home loan EMI increased after an interest reset and I was not informed about the rate change."),
-            "atm_debit": (35, "Cards", "query", "ATM cash not dispensed but account debited Rs. 5000. Complaint remains unresolved."),
-            "charges": (30, "Deposits", "request", "Minimum balance charge deducted without notice together with an SMS charge."),
-        }
-        channels = ["app", "email", "call_centre", "branch"]
-        for key, (count, product, agent_type, template) in generated.items():
+        for key, (count, product, agent_type, template) in demo_data["generated"].items():
+            count *= scale
             for offset in range(count):
                 source_id = f"SYN-{key.upper()}-{offset + 1:04d}"
                 ticket_id = str(uuid.uuid5(uuid.NAMESPACE_URL, "demo:" + source_id))
@@ -209,7 +205,7 @@ class DemoRepository(Repository):
                 text = f"{template} Reference {source_id}."
                 db.execute(
                     """INSERT INTO tickets VALUES (?, 'synthetic', ?, ?, ?, ?, ?, 'generated holdout', ?, NULL, 0, ?, ?)""",
-                    (ticket_id, source_id, received.isoformat(), channels[offset % len(channels)], branch, product, agent_type, text, now_iso()),
+                    (ticket_id, source_id, received.isoformat(), demo_data["channels"][offset % len(demo_data["channels"])], branch, product, agent_type, text, now_iso()),
                 )
                 self._score_with_connection(db, ticket_id)
         db.execute(
@@ -442,6 +438,63 @@ class DemoRepository(Repository):
         result["errors"] = json.loads(result.pop("errors_json"))
         return result
 
+    def escalation_gap(self) -> dict:
+        with self.connect() as db:
+            rows = db.execute(
+                """SELECT t.ticket_id, t.source_ticket_id, t.branch_id, t.product, t.agent_type,
+                    t.raw_text, i.confidence, i.ground_pred, i.trigger_phrase
+                    FROM tickets t JOIN insights i ON i.ticket_id=t.ticket_id
+                    WHERE i.is_complaint=1 AND t.escalated_to_io=0
+                    AND (t.resolution IS NULL OR LOWER(t.resolution) LIKE '%reject%'
+                         OR LOWER(t.resolution) LIKE '%partial%')
+                    ORDER BY i.confidence DESC LIMIT 50"""
+            ).fetchall()
+            total = db.execute(
+                """SELECT COUNT(*) FROM tickets t JOIN insights i ON i.ticket_id=t.ticket_id
+                   WHERE i.is_complaint=1 AND t.escalated_to_io=0
+                   AND (t.resolution IS NULL OR LOWER(t.resolution) LIKE '%reject%'
+                        OR LOWER(t.resolution) LIKE '%partial%')"""
+            ).fetchone()[0]
+        items = []
+        for row in rows:
+            item = dict(row)
+            item["excerpt"] = redact_excerpt(item.pop("raw_text"))
+            items.append(item)
+        return {
+            "total": total,
+            "high_confidence": sum(item["confidence"] >= 0.8 for item in items),
+            "items": items,
+            "explanation": "Complaint-like tickets marked unresolved or rejected without an Internal Ombudsman escalation.",
+        }
+
+    def top_grounds(self) -> list[dict]:
+        with self.connect() as db:
+            rows = db.execute(
+                """SELECT i.ground_pred AS ground, COUNT(*) AS complaint_count,
+                    ROUND(AVG(i.confidence), 3) AS confidence
+                    FROM insights i WHERE i.is_complaint=1
+                    GROUP BY i.ground_pred ORDER BY complaint_count DESC LIMIT 5"""
+            ).fetchall()
+        total = sum(row["complaint_count"] for row in rows) or 1
+        return [
+            {**dict(row), "share": round(row["complaint_count"] / total, 3), "rank": index + 1}
+            for index, row in enumerate(rows)
+        ]
+
+    def ask_data(self, question: str) -> dict:
+        normalized = question.lower().strip()
+        if not normalized:
+            raise ValueError("Ask a question about branches, clusters, grounds, or escalation.")
+        if "ground" in normalized or "top five" in normalized:
+            return {"question": question, "answer": "Top complaint grounds ranked by model evidence.", "data": self.top_grounds(), "source": "TICKET_INSIGHTS"}
+        if "escalat" in normalized or "ombudsman" in normalized or "reject" in normalized:
+            result = self.escalation_gap()
+            return {"question": question, "answer": f"{result['total']} complaint-like tickets appear unresolved without an ombudsman escalation.", "data": result, "source": "TICKETS + TICKET_INSIGHTS"}
+        if "branch" in normalized or "atm" in normalized:
+            clusters = self.list_clusters(search="ATM" if "atm" in normalized else None)
+            return {"question": question, "answer": "The highest-volume branches are shown in the matching root-cause cluster.", "data": clusters[:3], "source": "CLUSTERS + TICKET_INSIGHTS"}
+        raise ValueError("Supported questions cover top grounds, escalation gaps, complaint clusters, and affected branches.")
+
 
 class ExasolRepository(Repository):
     """Production adapter. SQL assets define the contract; live verification requires credentials."""
@@ -566,8 +619,22 @@ class ExasolRepository(Repository):
         rows = self._all("SELECT * FROM IMPORTS WHERE IMPORT_ID=:id", {"id": import_id})
         return rows[0] if rows else None
 
+    def escalation_gap(self) -> dict:
+        rows = self._all("SELECT * FROM V_ESCALATION_GAP")
+        return {"total": len(rows), "high_confidence": len(rows), "items": rows, "explanation": "Exasol escalation-gap view."}
+
+    def top_grounds(self) -> list[dict]:
+        return self._all("SELECT * FROM V_TOP_GROUNDS ORDER BY COMPLAINT_COUNT DESC LIMIT 5")
+
+    def ask_data(self, question: str) -> dict:
+        return {"question": question, "answer": "Use the configured Exasol MCP read-only connection for this question.", "data": [], "source": "EXASOL"}
+
 
 def build_repository(settings: Settings) -> Repository:
+    if settings.data_backend.lower() == "supabase":
+        from .supabase_repository import SupabaseRepository
+
+        return SupabaseRepository(settings)
     if settings.data_backend.lower() == "exasol":
         return ExasolRepository(settings)
     return DemoRepository(settings.demo_db_path)

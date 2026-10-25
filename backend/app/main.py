@@ -1,16 +1,19 @@
 import csv
 import io
+import json
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile, status
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
 from .auth import ActorContext, get_actor
+from .grounds import RBI_GROUNDS
 from .queueing import QueueClient
 from .repository import Repository, build_repository
 from .schemas import BatchInput, BatchResult, ReviewInput, TicketInput
+from .scoring import score_text
 from .settings import get_settings
 
 
@@ -109,6 +112,108 @@ def get_import(import_id: str, repo: Annotated[Repository, Depends(repository)])
 @app.get("/api/v1/pipeline/status")
 def pipeline_status(repo: Annotated[Repository, Depends(repository)]) -> dict:
     return repo.pipeline_status(app.state.queue.depth())
+
+
+@app.get("/api/v1/escalation-gap")
+def escalation_gap(repo: Annotated[Repository, Depends(repository)]) -> dict:
+    return repo.escalation_gap()
+
+
+@app.get("/api/v1/grounds/top-five")
+def top_grounds(repo: Annotated[Repository, Depends(repository)]) -> list[dict]:
+    return repo.top_grounds()
+
+
+@app.get("/api/v1/grounds/catalog")
+def grounds_catalog() -> list[dict]:
+    return RBI_GROUNDS
+
+
+@app.get("/api/v1/validation/status")
+def validation_status() -> dict:
+    return {
+        "demo_truth_available": True,
+        "cfpb_dataset_loaded": False,
+        "cfpb_dataset_note": "Upload a labeled CFPB CSV to /api/v1/validation/accuracy; the repository does not bundle third-party data.",
+        "exasol_mcp_configured": get_settings().data_backend == "exasol",
+    }
+
+
+@app.post("/api/v1/validation/accuracy")
+async def validation_accuracy(
+    file: Annotated[UploadFile, File(description="CSV with text and true_type columns")],
+) -> dict:
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(415, "Upload a .csv file.")
+    try:
+        text = (await file.read()).decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(422, "CSV must be UTF-8 encoded.") from exc
+    rows = list(csv.DictReader(io.StringIO(text)))
+    if not rows or not {"text", "true_type"}.issubset(rows[0]):
+        raise HTTPException(422, "CSV must contain text and true_type columns.")
+    valid = 0
+    correct = 0
+    complaint_correct = 0
+    complaint_total = 0
+    for row in rows:
+        truth = row["true_type"].strip().lower()
+        if truth not in {"complaint", "query", "request"}:
+            continue
+        prediction = "complaint" if score_text(row["text"]).is_complaint else "query"
+        valid += 1
+        correct += prediction == truth
+        if truth == "complaint":
+            complaint_total += 1
+            complaint_correct += prediction == truth
+    if not valid:
+        raise HTTPException(422, "No rows with supported true_type values were found.")
+    return {
+        "rows_evaluated": valid,
+        "accuracy": round(correct / valid, 4),
+        "complaint_recall": round(complaint_correct / complaint_total, 4) if complaint_total else None,
+        "labels": ["complaint", "query", "request"],
+        "note": "This evaluates the supplied labeled file; it does not claim RBI accuracy for US CFPB data.",
+    }
+
+
+@app.post("/api/v1/ask")
+def ask_data(payload: dict, repo: Annotated[Repository, Depends(repository)]) -> dict:
+    question = payload.get("question")
+    if not isinstance(question, str) or len(question) > 500:
+        raise HTTPException(422, "Question must be a non-empty string under 500 characters.")
+    try:
+        return repo.ask_data(question)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@app.post("/internal/cron/worker")
+def run_worker(
+    repo: Annotated[Repository, Depends(repository)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> dict:
+    settings = get_settings()
+    expected = f"Bearer {settings.cron_secret}" if settings.cron_secret else ""
+    if not expected or authorization != expected:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid cron authorization.")
+    queue: QueueClient = app.state.queue
+    processed = 0
+    failed = 0
+    for _ in range(settings.worker_batch_size):
+        raw = queue.pop()
+        if raw is None:
+            break
+        try:
+            job = json.loads(raw)
+            if job.get("job_type") != "score_ticket":
+                raise ValueError(f"Unsupported job type: {job.get('job_type')}")
+            repo.score_ticket(job["ticket_id"])
+            processed += 1
+        except Exception as exc:  # noqa: BLE001 - failed jobs must be retried or dead-lettered
+            failed += 1
+            queue.retry_or_dead_letter(raw, exc)
+    return {"processed": processed, "failed": failed, "remaining": queue.depth()}
 
 
 @app.get("/api/v1/clusters")

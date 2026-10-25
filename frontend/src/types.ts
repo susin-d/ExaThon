@@ -65,3 +65,35 @@ export interface PipelineStatus {
   freshness: string
   stages: PipelineStage[]
 }
+
+export interface EscalationGap {
+  total: number
+  high_confidence: number
+  explanation: string
+  items: Array<{
+    ticket_id: string
+    source_ticket_id: string
+    branch_id: string
+    product: string
+    agent_type: string
+    excerpt: string
+    confidence: number
+    ground_pred: string
+    trigger_phrase: string
+  }>
+}
+
+export interface GroundSummary {
+  rank: number
+  ground: string
+  complaint_count: number
+  confidence: number
+  share: number
+}
+
+export interface AskResult {
+  question: string
+  answer: string
+  source: string
+  data: GroundSummary[] | EscalationGap | Cluster[]
+}

@@ -4,7 +4,7 @@ import signal
 
 import redis
 
-from .queueing import DEAD_QUEUE, PENDING_QUEUE, Job
+from .queueing import PENDING_QUEUE, Job, QueueClient
 from .repository import build_repository
 from .settings import get_settings
 
@@ -22,6 +22,9 @@ def main() -> None:
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
     settings = get_settings()
+    if not settings.queue_enabled:
+        logger.info("worker disabled because QUEUE_ENABLED=false")
+        return
     repository = build_repository(settings)
     client = redis.Redis.from_url(settings.redis_url, decode_responses=True)
     logger.info("worker ready backend=%s", settings.data_backend)
@@ -39,14 +42,8 @@ def main() -> None:
             logger.info("scored ticket=%s", job.ticket_id)
         except Exception as exc:
             logger.exception("job failed")
-            payload = json.loads(raw)
-            payload["attempts"] = int(payload.get("attempts", 0)) + 1
-            payload["last_error"] = str(exc)
-            if payload["attempts"] >= 3:
-                client.rpush(DEAD_QUEUE, json.dumps(payload))
-            else:
-                payload.pop("last_error", None)
-                client.rpush(PENDING_QUEUE, json.dumps(payload))
+            queue = QueueClient(settings)
+            queue.retry_or_dead_letter(raw, exc)
 
 
 if __name__ == "__main__":

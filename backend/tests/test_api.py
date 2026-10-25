@@ -73,3 +73,31 @@ def test_api_vertical_slice(tmp_path):
         status = client.get("/api/v1/pipeline/status").json()
         assert status["tickets_scored"] == status["tickets_total"]
         assert status["review_queue_count"] >= 1
+
+
+def test_core_ombudsman_views(tmp_path):
+    with TestClient(app) as client:
+        app.state.repository = DemoRepository(tmp_path / "analytics.db")
+        app.state.queue = OfflineQueue()
+        gap = client.get("/api/v1/escalation-gap")
+        grounds = client.get("/api/v1/grounds/top-five")
+        answer = client.post("/api/v1/ask", json={"question": "What are the top five complaint grounds?"})
+        assert gap.status_code == 200 and gap.json()["total"] > 0
+        assert grounds.status_code == 200 and grounds.json()
+        assert answer.status_code == 200 and answer.json()["data"]
+
+
+def test_catalog_and_accuracy_validation(tmp_path):
+    with TestClient(app) as client:
+        app.state.repository = DemoRepository(tmp_path / "validation.db")
+        app.state.queue = OfflineQueue()
+        catalog = client.get("/api/v1/grounds/catalog")
+        status = client.get("/api/v1/validation/status")
+        csv_data = b"text,true_type\nUPI amount debited and not credited,complaint\nPlease share branch timings,query\n"
+        accuracy = client.post(
+            "/api/v1/validation/accuracy",
+            files={"file": ("holdout.csv", csv_data, "text/csv")},
+        )
+        assert catalog.status_code == 200 and len(catalog.json()) >= 4
+        assert status.status_code == 200 and status.json()["demo_truth_available"] is True
+        assert accuracy.status_code == 200 and accuracy.json()["rows_evaluated"] == 2

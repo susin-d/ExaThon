@@ -12,9 +12,12 @@ import {
   ListChecks,
   LoaderCircle,
   Menu,
+  MessageSquareText,
   RefreshCw,
   Search,
   ShieldCheck,
+  ShieldAlert,
+  Table2,
   Upload,
   X,
   XCircle,
@@ -22,9 +25,9 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useActor } from './actor-context'
 import { api } from './api'
-import type { Cluster, ClusterDetail, ClusterStatus, PipelineStatus, TicketEvidence } from './types'
+import type { AskResult, Cluster, ClusterDetail, ClusterStatus, EscalationGap, GroundSummary, PipelineStatus, TicketEvidence } from './types'
 
-type View = 'causes' | 'review' | 'pipeline'
+type View = 'causes' | 'review' | 'escalation' | 'grounds' | 'ask' | 'pipeline'
 type Notice = { tone: 'success' | 'error' | 'info'; text: string }
 
 const number = new Intl.NumberFormat('en-IN')
@@ -53,6 +56,11 @@ function App() {
   const [pipeline, setPipeline] = useState<PipelineStatus | null>(null)
   const [selected, setSelected] = useState<ClusterDetail | null>(null)
   const [reviewQueue, setReviewQueue] = useState<TicketEvidence[]>([])
+  const [escalationGap, setEscalationGap] = useState<EscalationGap | null>(null)
+  const [grounds, setGrounds] = useState<GroundSummary[]>([])
+  const [askResult, setAskResult] = useState<AskResult | null>(null)
+  const [askQuestion, setAskQuestion] = useState('')
+  const [askLoading, setAskLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
@@ -94,7 +102,21 @@ function App() {
     if (view === 'review') {
       api.reviewQueue().then(setReviewQueue).catch((err: Error) => setError(err.message))
     }
+    if (view === 'escalation') api.escalationGap().then(setEscalationGap).catch((err: Error) => setError(err.message))
+    if (view === 'grounds') api.topGrounds().then(setGrounds).catch((err: Error) => setError(err.message))
   }, [view])
+
+  const ask = async () => {
+    if (!askQuestion.trim()) return
+    setAskLoading(true)
+    try {
+      setAskResult(await api.ask(askQuestion.trim()))
+    } catch (err) {
+      setNotice({ tone: 'error', text: err instanceof Error ? err.message : 'The question could not be answered.' })
+    } finally {
+      setAskLoading(false)
+    }
+  }
 
   const openCluster = async (clusterId: string) => {
     try {
@@ -183,6 +205,12 @@ function App() {
                 setNotice({ tone: 'success', text: `Decision recorded for ${ticket.source_ticket_id}. Raw ticket unchanged.` })
               }}
             />
+          ) : view === 'escalation' ? (
+            <EscalationGapView data={escalationGap} />
+          ) : view === 'grounds' ? (
+            <GroundsView grounds={grounds} />
+          ) : view === 'ask' ? (
+            <AskDataView question={askQuestion} setQuestion={setAskQuestion} result={askResult} loading={askLoading} ask={ask} />
           ) : (
             <PipelineView status={pipeline} />
           )}
@@ -197,6 +225,9 @@ function Sidebar({ view, navigate, actor, open, reviewCount, isMobile }: { view:
   const items = [
     { id: 'causes' as const, label: 'Root causes', icon: FileSearch, count: null },
     { id: 'review' as const, label: 'Review queue', icon: ListChecks, count: reviewCount },
+    { id: 'escalation' as const, label: 'Escalation gap', icon: ShieldAlert, count: null },
+    { id: 'grounds' as const, label: 'Top five grounds', icon: Table2, count: null },
+    { id: 'ask' as const, label: 'Ask the data', icon: MessageSquareText, count: null },
     { id: 'pipeline' as const, label: 'Pipeline', icon: CircleGauge, count: null },
   ]
   return (
@@ -398,6 +429,40 @@ function EvidenceTicket({ ticket }: { ticket: TicketEvidence }) {
       <p>{parts.map((part, index) => part.toLowerCase() === ticket.trigger_phrase.toLowerCase() ? <mark key={index}>{part}</mark> : part)}</p>
       <footer><span>Agent: {ticket.agent_type}</span><span>Model: complaint</span><span>{ticket.model_version}</span></footer>
     </article>
+  )
+}
+
+function EscalationGapView({ data }: { data: EscalationGap | null }) {
+  return (
+    <div>
+      <div className="page-heading"><div><h1>Escalation gap</h1><p>Complaint-like tickets that appear unresolved but never reached the Internal Ombudsman.</p></div><span className="queue-total">{data?.total ?? '—'} candidates</span></div>
+      {!data ? <div className="empty-state large"><LoaderCircle className="spin" size={28} /><strong>Loading escalation evidence</strong></div> : (
+        <>
+          <div className="drawer-stats"><div><span>Needs escalation review</span><strong>{number.format(data.total)}</strong></div><div><span>High confidence</span><strong>{number.format(data.high_confidence)}</strong></div></div>
+          <p className="onset-note"><ShieldAlert size={15} />{data.explanation}</p>
+          <div className="review-list escalation-list">{data.items.map((item) => <article className="evidence-ticket" key={item.ticket_id}><div><strong>{item.source_ticket_id}</strong><span>{item.branch_id} · {item.product}</span><b>{confidence(item.confidence)}</b></div><p>{item.excerpt}</p><footer><span>{item.ground_pred}</span><span>Trigger: {item.trigger_phrase}</span><span>Agent: {item.agent_type}</span></footer></article>)}</div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function GroundsView({ grounds }: { grounds: GroundSummary[] }) {
+  return (
+    <div>
+      <div className="page-heading"><div><h1>Top five complaint grounds</h1><p>Disclosure-ready ranking generated from customer language rather than agent labels.</p></div></div>
+      {!grounds.length ? <div className="empty-state large"><LoaderCircle className="spin" size={28} /><strong>Loading ground analysis</strong></div> : <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Rank</th><th>RBI ground</th><th>Complaints</th><th>Share</th><th>Confidence</th></tr></thead><tbody>{grounds.map((ground) => <tr key={ground.ground}><td><strong>#{ground.rank}</strong></td><td>{ground.ground}</td><td>{number.format(ground.complaint_count)}</td><td>{Math.round(ground.share * 100)}%</td><td>{confidence(ground.confidence)}</td></tr>)}</tbody></table></div>}
+    </div>
+  )
+}
+
+function AskDataView({ question, setQuestion, result, loading, ask }: { question: string; setQuestion: (value: string) => void; result: AskResult | null; loading: boolean; ask: () => void }) {
+  return (
+    <div>
+      <div className="page-heading"><div><h1>Ask the data</h1><p>Read-only questions grounded in the evidence tables. Try a suggested question or write your own.</p></div></div>
+      <div className="ask-panel"><div className="ask-input"><MessageSquareText size={19} /><input value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && ask()} placeholder="Which branches drove the ATM cluster?" /><button className="button confirm" onClick={ask} disabled={loading || !question.trim()}>{loading ? <LoaderCircle className="spin" size={16} /> : 'Ask'}</button></div><div className="ask-suggestions"><button onClick={() => setQuestion('What are the top five complaint grounds?')}>Top five grounds</button><button onClick={() => setQuestion('Which complaints never reached the ombudsman?')}>Escalation gaps</button><button onClick={() => setQuestion('Which branches drove the ATM cluster?')}>ATM branches</button></div></div>
+      {result && <section className="ask-result"><div className="section-heading"><h2>Answer</h2><span>Source: {result.source}</span></div><p>{result.answer}</p><pre>{JSON.stringify(result.data, null, 2)}</pre></section>}
+    </div>
   )
 }
 

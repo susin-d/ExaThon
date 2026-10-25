@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -10,6 +11,7 @@ class Settings(BaseSettings):
 
     app_name: str = "Complaint Root-Cause Engine"
     data_backend: str = "demo"
+    demo_scale: int = Field(default=1, ge=1, le=250)
     demo_user_ids: list[str] = Field(
         default=[
             "susinsusindran@gmail.com",
@@ -17,8 +19,16 @@ class Settings(BaseSettings):
             "sushramesh5@gmail.com",
         ]
     )
-    demo_db_path: Path = Path("backend/demo.db")
-    redis_url: str = "redis://localhost:6379/0"
+    demo_db_path: Path = Field(
+        default_factory=lambda: Path("/tmp/complaint-engine-demo.db")
+        if os.getenv("VERCEL")
+        else Path("backend/demo.db")
+    )
+    supabase_db_url: str = ""
+    queue_enabled: bool = False
+    redis_url: str = ""
+    cron_secret: str = ""
+    worker_batch_size: int = Field(default=25, ge=1, le=100)
     exasol_dsn: str = ""
     exasol_user: str = ""
     exasol_password: str = ""

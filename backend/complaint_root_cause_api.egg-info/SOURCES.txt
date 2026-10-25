@@ -7,11 +7,14 @@ app/repository.py
 app/schemas.py
 app/scoring.py
 app/settings.py
+app/supabase_repository.py
 app/worker.py
+app/data/demo.json
 complaint_root_cause_api.egg-info/PKG-INFO
 complaint_root_cause_api.egg-info/SOURCES.txt
 complaint_root_cause_api.egg-info/dependency_links.txt
 complaint_root_cause_api.egg-info/requires.txt
 complaint_root_cause_api.egg-info/top_level.txt
+tests/test_api.py
 tests/test_repository.py
 tests/test_scoring.py
