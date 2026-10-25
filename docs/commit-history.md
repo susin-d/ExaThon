@@ -167,3 +167,7 @@ The investigation workflow milestone 043 records a bounded evidence review step,
 ## Milestone 044
 
 The investigation workflow milestone 044 records a bounded evidence review step, its supporting ticket lineage, and the append-only decision boundary.
+
+## Milestone 045
+
+The investigation workflow milestone 045 records a bounded evidence review step, its supporting ticket lineage, and the append-only decision boundary.
