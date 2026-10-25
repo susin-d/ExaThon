@@ -27,9 +27,22 @@
 </p>
 
 <p align="center">
+  <a href="https://altas-resolve.vercel.app" target="_blank"><img src="https://img.shields.io/badge/%F0%9F%9A%80%20Live%20App-altas--resolve.vercel.app-00C2A8?style=for-the-badge&logo=vercel&logoColor=white&labelColor=0d1117" alt="live demo"/></a>
+  <a href="https://backend-three-liard-60.vercel.app/health" target="_blank"><img src="https://img.shields.io/badge/%E2%9A%99%EF%B8%8F%20Live%20API-backend--three--liard--60.vercel.app-336791?style=for-the-badge&logo=fastapi&logoColor=white&labelColor=0d1117" alt="live api"/></a>
   <a href="./docs/Catching_Ghost_Complaints_Before_RBI_Does.mp4"><img src="https://img.shields.io/badge/%E2%96%B6%20Watch%20the%203--min%20demo-E5484D?style=for-the-badge&labelColor=0d1117" alt="demo video"/></a>
   <a href="./docs/Sovereign_Complaint_Engine.pdf"><img src="https://img.shields.io/badge/%F0%9F%93%91%20Pitch%20deck%20(PDF)-9B5DE5?style=for-the-badge&labelColor=0d1117" alt="pitch deck"/></a>
 </p>
+
+<img src="./assets/divider.svg" width="100%" height="4"/>
+
+## Live Deployments
+
+| Component | Production URL | Status | Description |
+|---|---|---|---|
+| **Web Application** | [https://altas-resolve.vercel.app](https://altas-resolve.vercel.app) | ![Status](https://img.shields.io/badge/status-live-00C2A8?style=flat-square) | Evidence-first Internal Ombudsman workspace |
+| **Backend API** | [https://backend-three-liard-60.vercel.app](https://backend-three-liard-60.vercel.app) | ![Status](https://img.shields.io/badge/status-live-00C2A8?style=flat-square) | Real-time classification & root-cause clustering API |
+| **API Health Check** | [https://backend-three-liard-60.vercel.app/health](https://backend-three-liard-60.vercel.app/health) | ![Health](https://img.shields.io/badge/health-200%20OK-brightgreen?style=flat-square) | Uptime & data backend check |
+| **Secondary Mirror** | [https://exathon-web.vercel.app](https://exathon-web.vercel.app) | ![Mirror](https://img.shields.io/badge/mirror-ready-blue?style=flat-square) | Production alias mirror |
 
 <img src="./assets/divider.svg" width="100%" height="4"/>
 
