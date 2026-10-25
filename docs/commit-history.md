@@ -111,3 +111,7 @@ The investigation workflow milestone 029 records a bounded evidence review step,
 ## Milestone 030
 
 The investigation workflow milestone 030 records a bounded evidence review step, its supporting ticket lineage, and the append-only decision boundary.
+
+## Milestone 031
+
+The investigation workflow milestone 031 records a bounded evidence review step, its supporting ticket lineage, and the append-only decision boundary.
