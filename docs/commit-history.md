@@ -295,3 +295,7 @@ The investigation workflow milestone 075 records a bounded evidence review step,
 ## Milestone 076
 
 The investigation workflow milestone 076 records a bounded evidence review step, its supporting ticket lineage, and the append-only decision boundary.
+
+## Milestone 077
+
+The investigation workflow milestone 077 records a bounded evidence review step, its supporting ticket lineage, and the append-only decision boundary.
