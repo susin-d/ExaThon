@@ -91,3 +91,7 @@ The investigation workflow milestone 024 records a bounded evidence review step,
 ## Milestone 025
 
 The investigation workflow milestone 025 records a bounded evidence review step, its supporting ticket lineage, and the append-only decision boundary.
+
+## Milestone 026
+
+The investigation workflow milestone 026 records a bounded evidence review step, its supporting ticket lineage, and the append-only decision boundary.
