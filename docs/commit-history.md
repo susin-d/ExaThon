@@ -223,3 +223,7 @@ The investigation workflow milestone 057 records a bounded evidence review step,
 ## Milestone 058
 
 The investigation workflow milestone 058 records a bounded evidence review step, its supporting ticket lineage, and the append-only decision boundary.
+
+## Milestone 059
+
+The investigation workflow milestone 059 records a bounded evidence review step, its supporting ticket lineage, and the append-only decision boundary.
