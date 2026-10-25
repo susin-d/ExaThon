@@ -1,0 +1,33 @@
+OPEN SCHEMA COMPLAINT_ENGINE;
+
+SELECT CURRENT_TIMESTAMP AS DATABASE_TIME;
+
+SELECT SYSTEM_VALUE
+FROM EXA_PARAMETERS
+WHERE PARAMETER_NAME = 'SCRIPT_LANGUAGES';
+
+CREATE OR REPLACE PYTHON3 SCALAR SCRIPT VERIFY_PYTHON_RUNTIME() RETURNS VARCHAR(200) AS
+import platform
+import sklearn
+def run(ctx):
+    return "python=" + platform.python_version() + "; sklearn=" + sklearn.__version__
+/
+
+SELECT VERIFY_PYTHON_RUNTIME() AS RUNTIME_PROOF;
+
+SELECT * FROM SCORE_TICKET(
+    'UPI TXN-82A91XZ amount debited Rs 4850 four days ago but beneficiary not credited',
+    'rules-tfidf-v1'
+);
+
+-- Transactional-write probe. It leaves no verification record behind.
+BEGIN;
+INSERT INTO PIPELINE_RUNS VALUES (
+    '00000000-0000-0000-0000-000000000001', 'verification', 'succeeded',
+    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, NULL
+);
+ROLLBACK;
+
+SELECT COUNT(*) AS SHOULD_BE_ZERO
+FROM PIPELINE_RUNS
+WHERE RUN_ID='00000000-0000-0000-0000-000000000001';
