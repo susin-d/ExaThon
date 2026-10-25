@@ -359,3 +359,7 @@ The investigation workflow milestone 091 records a bounded evidence review step,
 ## Milestone 092
 
 The investigation workflow milestone 092 records a bounded evidence review step, its supporting ticket lineage, and the append-only decision boundary.
+
+## Milestone 093
+
+The investigation workflow milestone 093 records a bounded evidence review step, its supporting ticket lineage, and the append-only decision boundary.
